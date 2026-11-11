@@ -46,7 +46,7 @@ jobs:
         env:
           MAX_MINUTES: "170"
           DISCOVERY_PER_RUN: "900"
-          SCAN_PER_RUN: "1500"
+          SCAN_PER_RUN: "2500"
           WORKERS: "24"
           FEED_DAYS: "21"
         run: python scanner/scan.py
