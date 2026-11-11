@@ -1,0 +1,67 @@
+name: Career feed (UAE company careers pages)
+
+on:
+  schedule:
+    # 02:45 UTC = 06:45 Dubai, so the feed is ready well before the
+    # Career Watch email task (12:25 Dubai).
+    - cron: "45 2 * * *"
+  workflow_dispatch:
+    inputs:
+      rebuild_company_list:
+        description: "Rebuild companies.csv from Wikidata now"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: career-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build company list (first run, Mondays, or on request)
+        run: |
+          if [ ! -f companies.csv ] || [ "$(date -u +%u)" = "1" ] || [ "${{ github.event.inputs.rebuild_company_list }}" = "true" ]; then
+            python scanner/build_company_list.py
+          else
+            echo "companies.csv is current; skipping rebuild"
+          fi
+
+      - name: Scan careers pages
+        env:
+          MAX_MINUTES: "170"
+          DISCOVERY_PER_RUN: "900"
+          SCAN_PER_RUN: "1500"
+          WORKERS: "24"
+          FEED_DAYS: "21"
+        run: python scanner/scan.py
+
+      - name: Commit feed and state
+        run: |
+          git config user.name "career-feed-bot"
+          git config user.email "career-feed-bot@users.noreply.github.com"
+          git add career_jobs.json state/ companies.csv
+          if git diff --cached --quiet; then
+            echo "Nothing changed"
+          else
+            git commit -m "Career feed $(date -u +%Y-%m-%d)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash && git push && break
+              sleep 10
+            done
+          fi
