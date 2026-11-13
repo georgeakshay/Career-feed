@@ -5,6 +5,7 @@ on:
     # 02:45 UTC = 06:45 Dubai, so the feed is ready well before the
     # Career Watch email task (12:25 Dubai).
     - cron: "45 2 * * *"
+    - cron: "10 5 * * *"  # backup run 09:10 Dubai
   workflow_dispatch:
     inputs:
       rebuild_company_list:
